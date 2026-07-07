@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "argon-agents"
+version = "0.1.0"
+description = "Argon adapters for AI agent frameworks: sandboxed, versioned MongoDB for LangGraph and Mem0"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "pymongo>=4.6",
+]
+
+[project.optional-dependencies]
+langgraph = ["langgraph-checkpoint-mongodb>=0.1"]
+dev = ["pytest>=8", "langgraph-checkpoint-mongodb>=0.1", "langgraph>=0.2"]
+
+[project.urls]
+Homepage = "https://github.com/argon-lab/argon-agents"
+Engine = "https://github.com/argon-lab/argon"
