@@ -1,5 +1,8 @@
 # argon-agents
 
+[![PyPI](https://img.shields.io/pypi/v/argon-agents?logo=pypi&label=PyPI)](https://pypi.org/project/argon-agents/)
+[![CI](https://github.com/argon-lab/argon-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/argon-lab/argon-agents/actions/workflows/ci.yml)
+
 Argon adapters for AI agent frameworks: **sandboxed, versioned MongoDB**
 for LangGraph and Mem0.
 
