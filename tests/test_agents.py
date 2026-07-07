@@ -150,6 +150,36 @@ def test_langgraph_checkpointer(argon: ArgonClient, project: str):
     saver.discard()
 
 
+def test_pinned_eval_dataset(argon: ArgonClient, project: str):
+    # Author the dataset through a sandbox and merge it to main.
+    seed = argon.create_sandbox(project, ttl_minutes=15)
+    seed_db = seed.pymongo_database()
+    seed_db.eval_cases.insert_many([{"_id": f"case-{i}", "input": i} for i in range(3)])
+    wait_for_diff(seed, 1)
+    seed.merge()
+    seed.discard()
+
+    # Pin it.
+    pin = argon.create_pin(project, "eval-v1", note="three cases")
+    assert pin["lsn"] > 0
+    assert any(p["name"] == "eval-v1" for p in argon.list_pins(project))
+
+    # The dataset moves on after the pin.
+    later = argon.create_sandbox(project, ttl_minutes=15)
+    later.pymongo_database().eval_cases.insert_one({"_id": "case-99", "input": 99})
+    wait_for_diff(later, 1)
+    later.merge()
+    later.discard()
+
+    # Every run forked from the pin sees exactly the pinned three cases.
+    run = argon.sandbox_from_pin(project, "eval-v1", ttl_minutes=15)
+    docs = list(run.pymongo_database().eval_cases.find())
+    assert {d["_id"] for d in docs} == {"case-0", "case-1", "case-2"}
+    run.discard()
+
+    argon.delete_pin(project, "eval-v1")
+
+
 def test_mem0_config_factory(argon: ArgonClient, project: str):
     from argon_agents import sandboxed_mem0_config
 

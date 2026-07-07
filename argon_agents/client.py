@@ -102,6 +102,55 @@ class ArgonClient:
             forked_from=resp["forked_from"],
         )
 
+    # -- pins (reproducible eval datasets) -----------------------------------
+
+    def create_pin(
+        self,
+        project: str,
+        name: str,
+        branch: str = "main",
+        lsn: Optional[int] = None,
+        note: Optional[str] = None,
+    ) -> dict:
+        """Pin a branch state under a name: a named, immutable dataset
+        reference that survives garbage collection and resets forever.
+        Defaults to the branch's current head."""
+        body: dict[str, Any] = {"name": name, "branch": branch}
+        if lsn is not None:
+            body["lsn"] = lsn
+        if note:
+            body["note"] = note
+        return self._call("POST", f"/projects/{project}/pins", body)
+
+    def list_pins(self, project: str) -> list[dict]:
+        return self._call("GET", f"/projects/{project}/pins")["pins"]
+
+    def delete_pin(self, project: str, name: str) -> None:
+        self._call("DELETE", f"/projects/{project}/pins/{name}")
+
+    def sandbox_from_pin(
+        self,
+        project: str,
+        pin: str,
+        name: Optional[str] = None,
+        ttl_minutes: int = 60,
+    ) -> "Sandbox":
+        """Fork a TTL sandbox that starts at exactly the pinned state —
+        the reproducible-eval workflow: pin the dataset once, fork a fresh
+        sandbox from it for every run."""
+        body: dict[str, Any] = {"ttl_minutes": ttl_minutes}
+        if name:
+            body["name"] = name
+        resp = self._call("POST", f"/projects/{project}/pins/{pin}/sandboxes", body)
+        return Sandbox(
+            _client=self,
+            project=project,
+            branch=resp["branch"],
+            connection_string=resp["connection_string"],
+            expires_at=resp["expires_at"],
+            forked_from=resp["forked_from"],
+        )
+
     # -- diff / merge / undo ------------------------------------------------
 
     def diff(self, project: str, branch: str) -> dict:
