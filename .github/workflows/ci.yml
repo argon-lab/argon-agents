@@ -55,4 +55,4 @@ jobs:
     - name: Install and test
       run: |
         pip install -e ".[dev]"
-        pytest -v
+        pytest tests/ -v
