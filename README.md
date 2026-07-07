@@ -77,6 +77,20 @@ memory = Memory.from_config({"vector_store": config})
 sandbox.merge()   # adopt the new memories, or discard(), or let the TTL run
 ```
 
+## Reproducible evals: dataset pins
+
+A pin is a named, immutable reference to a branch state that survives
+garbage collection and resets forever. Pin the eval dataset once; fork a
+fresh sandbox from the pin for every run; every run starts identical:
+
+```python
+argon.create_pin("my-project", "eval-v1", note="golden dataset")
+
+run = argon.sandbox_from_pin("my-project", "eval-v1", ttl_minutes=30)
+# ... run the eval against run.connection_string ...
+run.discard()          # the pin itself is untouched — fork again anytime
+```
+
 ## Tests
 
 ```bash
