@@ -19,14 +19,13 @@ agent frameworks the two things plain MongoDB can't:
 
 ## Install
 
-The 0.2.0 source release candidate targets Argon 2.1.0 and its exact capture
-guarantees. Until those versions are published, install this checkout with
-`pip install -e ".[dev]"` and run the matching engine checkout. The commands
-below install the currently published package.
+Version 0.2.0 targets Argon 2.1.0 and its exact capture guarantees. Use the
+matching engine release. Release wheels and source archives are available
+from [GitHub Releases](https://github.com/argon-lab/argon-agents/releases).
 
 ```bash
-pip install argon-agents            # client + Mem0 factory
-pip install "argon-agents[langgraph]"  # + the LangGraph checkpointer
+pip install argon-agents==0.2.0            # client + Mem0 factory
+pip install "argon-agents[langgraph]==0.2.0"  # + the LangGraph checkpointer
 ```
 
 Requires a running [Argon API server](https://github.com/argon-lab/argon)
