@@ -13,6 +13,10 @@ on:
         description: "Existing release tag to publish (for example v0.2.0)"
         default: v0.2.0
         required: true
+      probe_only:
+        description: "Only check whether standard PyPI credentials are assigned; do not upload"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -82,9 +86,21 @@ jobs:
     permissions:
       id-token: write
     steps:
+      - name: Report assigned credential availability without revealing values
+        env:
+          ASSIGNED_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN || secrets.PYPI_TOKEN || secrets.TWINE_PASSWORD }}
+        run: |
+          if [ -n "$ASSIGNED_PYPI_TOKEN" ]; then
+            echo 'A standard PyPI upload credential is assigned to this repository/environment.'
+          else
+            echo 'No standard PyPI upload credential is assigned to this job; publishing requires the configured trusted publisher.'
+          fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: python-distributions
           path: dist/
-      - name: Publish using PyPI trusted publishing
+      - name: Publish using assigned credentials or PyPI trusted publishing
+        if: ${{ !inputs.probe_only }}
         uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN || secrets.PYPI_TOKEN || secrets.TWINE_PASSWORD }}
