@@ -27,10 +27,12 @@ class ArgonError(RuntimeError):
 class ArgonClient:
     """Client for the Argon REST API (default http://localhost:8080)."""
 
-    def __init__(self, api_url: str = "http://localhost:8080", timeout: float = 30.0):
+    def __init__(self, api_url: str = "http://localhost:8080", timeout: float = 30.0, *, token: Optional[str] = None):
         self.api_url = api_url.rstrip("/")
         self.timeout = timeout
         self._session = requests.Session()
+        if token:
+            self._session.headers["Authorization"] = f"Bearer {token}"
 
     # -- plumbing ---------------------------------------------------------
 
@@ -74,9 +76,9 @@ class ArgonClient:
     def delete_branch(self, project: str, branch: str) -> None:
         self._call("DELETE", f"/projects/{project}/branches/{branch}")
 
-    def checkout(self, project: str, branch: str) -> str:
+    def checkout(self, project: str, branch: str, *, actor: Optional[str] = None) -> str:
         """Materialize a branch and return its MongoDB connection string."""
-        return self._call("POST", f"/projects/{project}/branches/{branch}/checkout")[
+        return self._call("POST", f"/projects/{project}/branches/{branch}/checkout", {"actor": actor} if actor else {})[
             "connection_string"
         ]
 
@@ -88,8 +90,11 @@ class ArgonClient:
         from_branch: str = "main",
         name: Optional[str] = None,
         ttl_minutes: int = 60,
+        actor: Optional[str] = None,
     ) -> "Sandbox":
         body = {"from": from_branch, "ttl_minutes": ttl_minutes}
+        if actor:
+            body["actor"] = actor
         if name:
             body["name"] = name
         resp = self._call("POST", f"/projects/{project}/sandboxes", body)
@@ -134,11 +139,14 @@ class ArgonClient:
         pin: str,
         name: Optional[str] = None,
         ttl_minutes: int = 60,
+        actor: Optional[str] = None,
     ) -> "Sandbox":
         """Fork a TTL sandbox that starts at exactly the pinned state —
         the reproducible-eval workflow: pin the dataset once, fork a fresh
         sandbox from it for every run."""
         body: dict[str, Any] = {"ttl_minutes": ttl_minutes}
+        if actor:
+            body["actor"] = actor
         if name:
             body["name"] = name
         resp = self._call("POST", f"/projects/{project}/pins/{pin}/sandboxes", body)
@@ -189,6 +197,16 @@ class ArgonClient:
 
     def time_travel_info(self, project: str, branch: str) -> dict:
         return self._call("GET", f"/projects/{project}/branches/{branch}/time-travel")
+
+    def entries(self, project: str, branch: str) -> list[dict]:
+        return self._call("GET", f"/projects/{project}/branches/{branch}/entries?limit=1000")["entries"]
+
+    def release(self, project: str, branch: str) -> None:
+        """Stop writers before calling: capture is drained before release."""
+        self._call("POST", f"/projects/{project}/branches/{branch}/release")
+
+    def capture_status(self) -> list[dict]:
+        return self._call("GET", "/status/ingesters").get("capture", [])
 
 
 @dataclass
