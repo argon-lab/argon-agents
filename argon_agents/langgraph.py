@@ -33,6 +33,17 @@ class ArgonCheckpointSaver(MongoDBSaver):
     def __init__(self, connection_string: str, *, sandbox: Optional[Sandbox] = None, **kwargs):
         client = MongoClient(connection_string)
         db_name = client.get_default_database().name
+        # Prepare collections before the saver can upsert rapidly. MongoDB
+        # cannot provide exact images retroactively for a newly created collection.
+        db = client[db_name]
+        for name in (kwargs.get("checkpoint_collection_name", "checkpoints"), kwargs.get("writes_collection_name", "checkpoint_writes")):
+            if name not in db.list_collection_names():
+                from pymongo.errors import CollectionInvalid
+                try:
+                    db.create_collection(name, changeStreamPreAndPostImages={"enabled": True})
+                except CollectionInvalid:
+                    pass
+            db.command("collMod", name, changeStreamPreAndPostImages={"enabled": True})
         super().__init__(client, db_name=db_name, **kwargs)
         self.sandbox = sandbox
 
@@ -46,6 +57,7 @@ class ArgonCheckpointSaver(MongoDBSaver):
         from_branch: str = "main",
         name: Optional[str] = None,
         ttl_minutes: int = 60,
+        actor: Optional[str] = None,
         **kwargs,
     ) -> "ArgonCheckpointSaver":
         """Fork a sandbox and checkpoint against it.
@@ -54,7 +66,7 @@ class ArgonCheckpointSaver(MongoDBSaver):
         ``discard()``; the TTL reclaims the sandbox if neither happens.
         """
         sandbox = argon.create_sandbox(
-            project, from_branch=from_branch, name=name, ttl_minutes=ttl_minutes
+            project, from_branch=from_branch, name=name, ttl_minutes=ttl_minutes, actor=actor
         )
         return cls(sandbox.connection_string, sandbox=sandbox, **kwargs)
 
@@ -75,6 +87,7 @@ class ArgonCheckpointSaver(MongoDBSaver):
         state into a new sandbox and return a saver for the copy."""
         if self.sandbox is None:
             raise ValueError("fork() needs a saver created via from_sandbox()")
+        self.sandbox.diff()  # the API synchronizes acknowledged writes before forking
         return self.from_sandbox(
             argon,
             self.sandbox.project,
