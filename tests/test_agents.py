@@ -1,8 +1,7 @@
 """Integration tests against a live Argon stack.
 
 Requirements: the Argon API server on ARGON_API_URL (default
-http://localhost:8080) backed by a replica-set MongoDB. Tests skip when the
-stack is unreachable so the suite can run anywhere; CI always provides it.
+http://localhost:8080) backed by a replica-set MongoDB. CI fails when the stack is unreachable; local optional runs may skip.
 """
 
 import os
@@ -24,14 +23,18 @@ def _stack_available() -> bool:
         return False
 
 
+_available = _stack_available()
+if not _available and os.environ.get("ARGON_REQUIRE_STACK") == "1":
+    raise RuntimeError(f"required Argon API is unavailable: {API_URL}")
+
 pytestmark = pytest.mark.skipif(
-    not _stack_available(), reason=f"no Argon API server at {API_URL}"
+    not _available, reason=f"no Argon API server at {API_URL}"
 )
 
 
 @pytest.fixture()
 def argon() -> ArgonClient:
-    return ArgonClient(API_URL)
+    return ArgonClient(API_URL, token=os.environ.get("ARGON_API_TOKEN"))
 
 
 @pytest.fixture()
@@ -76,9 +79,14 @@ def test_sandbox_write_merge_undo(argon: ArgonClient, project: str):
     head = info["branch"]["head_lsn"]
     assert head > 0
 
-    # And main can be dry-run undone over the same API.
-    undo = argon.undo(project, "main", from_lsn=head, dry_run=True)
-    assert undo["dry_run"] is True
+    entries = argon.entries(project, "main")
+    writes = [e["lsn"] for e in entries if e["operation"] == "put"]
+    assert writes
+    undo = argon.undo(project, "main", from_lsn=min(writes), dry_run=False)
+    assert undo["deleted"] >= 1
+    check = argon.create_sandbox(project, ttl_minutes=15)
+    assert check.pymongo_database().notes.count_documents({}) == 0
+    check.discard()
 
     sandbox.discard()
     with pytest.raises(ArgonError):
@@ -93,27 +101,22 @@ def test_merge_conflict_strategies(argon: ArgonClient, project: str):
     seed.merge()
     seed.discard()
 
-    # Two sandboxes contest the same document.
+    # Both fork the same base BEFORE either merge; the conflict is mandatory.
     a = argon.create_sandbox(project, ttl_minutes=15)
-    a.pymongo_database().cfg.update_one({"_id": "c"}, {"$set": {"v": "from-a"}})
-    wait_for_diff(a, 1)
-    a.merge()
-    a.discard()
-
     b = argon.create_sandbox(project, ttl_minutes=15)
-    # b forked before a merged? No — created after, so no conflict... force one:
-    # write to the same doc, then merge with strategy after main moved.
-    b_db = b.pymongo_database()
-    b_db.cfg.update_one({"_id": "c"}, {"$set": {"v": "from-b"}})
-    wait_for_diff(b, 1)
+    a.pymongo_database().cfg.update_one({"_id": "c"}, {"$set": {"v": "from-a"}})
+    b.pymongo_database().cfg.update_one({"_id": "c"}, {"$set": {"v": "from-b"}})
+    a.merge()
     plan = argon.merge_preview(project, b.branch)
-    if plan.get("conflicts"):
-        with pytest.raises(ArgonError):
-            argon.merge_apply(plan["id"])
-        result = argon.merge_apply(plan["id"], strategy="theirs")
-        assert result["conflicts_resolved"] >= 1
-    else:
-        assert argon.merge_apply(plan["id"])["applied"] >= 1
+    assert len(plan["conflicts"]) == 1
+    with pytest.raises(ArgonError):
+        argon.merge_apply(plan["id"])
+    result = argon.merge_apply(plan["id"], strategy="theirs")
+    assert result["conflicts_resolved"] == 1
+    check = argon.create_sandbox(project, ttl_minutes=15)
+    assert check.pymongo_database().cfg.find_one({"_id":"c"})["v"] == "from-b"
+    check.discard()
+    a.discard()
     b.discard()
 
 
@@ -189,3 +192,64 @@ def test_mem0_config_factory(argon: ArgonClient, project: str):
     assert config["config"]["db_name"] == sandbox.database_name
     assert config["config"]["db_name"].startswith("argon_br_")
     sandbox.discard()
+
+
+def test_langgraph_invoke_async_and_fork(argon: ArgonClient, project: str):
+    import asyncio
+    from typing import TypedDict
+    from langgraph.graph import StateGraph, START, END
+    from argon_agents import ArgonCheckpointSaver
+
+    class State(TypedDict):
+        value: int
+
+    def build(saver):
+        graph = StateGraph(State)
+        graph.add_node("increment", lambda state: {"value": state["value"] + 1})
+        graph.add_edge(START, "increment")
+        graph.add_edge("increment", END)
+        return graph.compile(checkpointer=saver)
+
+    saver = ArgonCheckpointSaver.from_sandbox(argon, project, actor="agent:graph")
+    graph = build(saver)
+    config = {"configurable": {"thread_id": "workflow"}}
+    assert graph.invoke({"value": 1}, config)["value"] == 2
+    assert asyncio.run(graph.ainvoke({"value": 3}, config))["value"] == 4
+    fork = saver.fork(argon)
+    fork_graph = build(fork)
+    assert fork_graph.get_state(config).values["value"] == 4
+    assert fork_graph.invoke({"value": 8}, config)["value"] == 9
+    assert graph.get_state(config).values["value"] == 4
+    fork.discard()
+    saver.discard()
+
+
+def test_mem0_provider_real_document_roundtrip(argon: ArgonClient, project: str):
+    # Real Mem0 insert/get/update/delete and real MongoDB/WAL. Only Atlas
+    # search-index setup is replaced: plain mongod cannot run vector search.
+    # This test does NOT claim semantic retrieval coverage.
+    from mem0.vector_stores.mongodb import MongoDB
+    from argon_agents import sandboxed_mem0_config
+
+    class DocumentStore(MongoDB):
+        def create_col(self):
+            return self.db[self.collection_name]
+
+    config, box = sandboxed_mem0_config(argon, project, embedding_model_dims=3)
+    store = DocumentStore(**config["config"])
+    store.insert([[1.0, 0.0, 0.0]], [{"data": "agent memory", "user_id":"test"}], ["memory-1"])
+    assert store.get("memory-1").payload["data"] == "agent memory"
+    box.diff()
+    store.update("memory-1", payload={"data": "updated memory"})
+    assert store.get("memory-1").payload["data"] == "updated memory"
+    box.diff()
+    box.merge()
+    check = argon.create_sandbox(project)
+    assert check.pymongo_database().mem0.find_one({"_id":"memory-1"})["payload"]["data"] == "updated memory"
+    store.delete("memory-1")
+    assert store.get("memory-1") is None
+    box.diff()
+    assert any(e["operation"] == "delete" for e in argon.entries(project, box.branch))
+    check.discard()
+    box.discard()
+    store.client.close()

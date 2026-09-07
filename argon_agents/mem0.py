@@ -22,8 +22,14 @@ def sandboxed_mem0_config(
     embedding_model_dims: int = 1536,
     ttl_minutes: int = 60,
     name: Optional[str] = None,
+    actor: Optional[str] = None,
 ) -> Tuple[dict, Sandbox]:
     """Provision a sandbox and return (mem0_config, sandbox).
+
+    Mem0's MongoDB vector provider requires Atlas Search (or a compatible
+    MongoDB Search deployment). A plain replica set supports versioned
+    documents but not semantic vector retrieval. Search indexes must be
+    provisioned separately on each physical branch; they are not WAL data.
 
     Usage::
 
@@ -34,8 +40,12 @@ def sandboxed_mem0_config(
         # or sandbox.discard(), or just let the TTL reclaim it
     """
     sandbox = argon.create_sandbox(
-        project, from_branch=from_branch, name=name, ttl_minutes=ttl_minutes
+        project, from_branch=from_branch, name=name, ttl_minutes=ttl_minutes, actor=actor
     )
+    db = sandbox.pymongo_database()
+    if collection_name not in db.list_collection_names():
+        db.create_collection(collection_name, changeStreamPreAndPostImages={"enabled": True})
+    db.command("collMod", collection_name, changeStreamPreAndPostImages={"enabled": True})
     config = {
         "provider": "mongodb",
         "config": {
