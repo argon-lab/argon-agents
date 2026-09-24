@@ -9,7 +9,7 @@ on:
     inputs:
       engine_ref:
         description: "Exact engine SHA or release tag to verify"
-        default: ba6e06a9a3b31124d6c37475b5667dd70ab42379
+        default: v2.1.1
         required: true
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         repository: argon-lab/argon
-        ref: ${{ inputs.engine_ref || 'ba6e06a9a3b31124d6c37475b5667dd70ab42379' }}
+        ref: ${{ inputs.engine_ref || 'v2.1.1' }}
         path: engine
 
     - name: Set up Go
