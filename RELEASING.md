@@ -32,7 +32,10 @@ not needed with Trusted Publishing. Never put credentials in logs or issues.
    or replace an uploaded PyPI version.
 3. Dispatch `Publish Python package` on `main`, using the existing tag and
    `probe_only=false`. The workflow checks that the tag matches the package
-   and is an ancestor of `main`, builds distributions and uploads them.
+   and is an ancestor of `main`, then records its exact commit. The publication
+   job checks out that commit, revalidates the tag, rebuilds and checks the
+   distributions before uploading to PyPI. It does not use Actions artifact
+   storage to transfer distributions between jobs.
 4. Require the registry verification step to pass. It waits for the expected
    non-yanked release, downloads a wheel through pip into a fresh virtual
    environment, checks the installed version and imports the client there.

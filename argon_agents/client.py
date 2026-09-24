@@ -118,7 +118,8 @@ class ArgonClient:
         note: Optional[str] = None,
     ) -> dict:
         """Pin a branch state under a name: a named, immutable dataset
-        reference that survives garbage collection and resets forever.
+        reference that protects its retained history while the pin exists.
+        Deleting the pin removes that protection; keep independent backups.
         Defaults to the branch's current head."""
         body: dict[str, Any] = {"name": name, "branch": branch}
         if lsn is not None:
@@ -172,7 +173,11 @@ class ArgonClient:
         return self._call("POST", f"/merge-plans/{plan_id}/apply", body)
 
     def merge(self, project: str, branch: str, strategy: Optional[str] = None) -> dict:
-        """Preview and apply in one step."""
+        """Preview and apply immediately, without pausing for review.
+
+        For an explicit review step, call merge_preview(), inspect the returned
+        plan, then call merge_apply() with that plan's ID.
+        """
         plan = self.merge_preview(project, branch)
         return self.merge_apply(plan["id"], strategy)
 
@@ -242,6 +247,10 @@ class Sandbox:
         return self._client.diff(self.project, self.branch)
 
     def merge(self, strategy: Optional[str] = None) -> dict:
+        """Preview and apply immediately; this method does not request approval.
+
+        Use ArgonClient.merge_preview() and merge_apply() for separate review.
+        """
         return self._client.merge(self.project, self.branch, strategy)
 
     def keep_days_note(self) -> str:  # pragma: no cover - convenience only

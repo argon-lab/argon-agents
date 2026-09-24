@@ -14,8 +14,9 @@ agent frameworks the two things plain MongoDB can't:
    TTL, point the agent at an ordinary connection string, and production
    data stays isolated until you explicitly merge the reviewed changes.
 2. **An adopt-or-reject story for what the agent did.** Diff the sandbox,
-   merge it back (with conflict strategies), undo any range, or just let
-   the TTL reclaim it.
+   preview a merge and explicitly apply its reviewed plan, undo supported
+   captured ranges within retained history, or let the running API reclaim
+   the sandbox after its TTL.
 
 ## Install
 
@@ -47,15 +48,25 @@ or discard. The public hosted demo does not expose native connection strings.
 from argon_agents import ArgonClient
 
 argon = ArgonClient("http://localhost:8080")
-argon.create_project("support-bot")
+argon.get_or_create_project("support-bot")
 
 sandbox = argon.create_sandbox("support-bot", ttl_minutes=60, actor="agent:run-42")
 db = sandbox.pymongo_database()        # plain pymongo, isolated copy
 db.tickets.insert_one({"_id": "t1", "status": "resolved"})
 
 print(sandbox.diff())                  # what the agent changed
-sandbox.merge()                        # adopt it — or sandbox.discard()
+plan = argon.merge_preview("support-bot", sandbox.branch)
+print(plan)                            # inspect changes and conflicts
+# After reviewing this exact plan, explicitly apply it:
+# argon.merge_apply(plan["id"])
+# Or reject the proposal with sandbox.discard().
 ```
+
+`merge_preview` creates a plan without changing the target branch. Review that
+plan before calling `merge_apply(plan["id"])`; a stale plan must be previewed
+again. The convenience methods `sandbox.merge()` and `saver.merge()` preview
+and apply immediately, with no pause or approval step. Use them only when
+that automatic application is intentional in your own workflow.
 
 The actor labels the entire branch/run, not individual MongoDB clients.
 Use a separate sandbox for each agent. For a protected API, pass
@@ -84,14 +95,16 @@ ARGON_API_URL=http://localhost:8080 python examples/two_agent_review.py
 from argon_agents import ArgonClient, ArgonCheckpointSaver
 
 argon = ArgonClient()
+argon.get_or_create_project("support-bot")
 saver = ArgonCheckpointSaver.from_sandbox(argon, "support-bot", ttl_minutes=60)
 
 graph = builder.compile(checkpointer=saver)   # any LangGraph graph
 graph.invoke(input, {"configurable": {"thread_id": "user-42"}})
 
-saver.merge()          # keep the run's checkpoints
-# saver.discard()      # or reject them
-# saver.fork(argon)    # or branch the entire memory state and try both
+plan = argon.merge_preview("support-bot", saver.sandbox.branch)
+print(plan)                           # review the checkpoint-store changes
+# After review: argon.merge_apply(plan["id"])
+# Or saver.discard() to reject, or saver.fork(argon) to try another branch.
 ```
 
 `ArgonCheckpointSaver` *is* the official `langgraph-checkpoint-mongodb`
@@ -114,25 +127,31 @@ from argon_agents import ArgonClient, sandboxed_mem0_config
 from mem0 import Memory
 
 argon = ArgonClient()
+argon.get_or_create_project("support-bot")
 config, sandbox = sandboxed_mem0_config(argon, "support-bot")
 memory = Memory.from_config({"vector_store": config})
 
 # ... let the agent read/write memories ...
-sandbox.merge()   # adopt the new memories, or discard(), or let the TTL run
+plan = argon.merge_preview("support-bot", sandbox.branch)
+print(plan)                           # review the memory changes
+# After review: argon.merge_apply(plan["id"])
+# Or sandbox.discard(); the running API also sweeps expired sandboxes.
 ```
 
 ## Reproducible evals: dataset pins
 
-A pin is a named, immutable reference to a branch state that survives
-garbage collection and resets forever. Pin the eval dataset once; fork a
-fresh sandbox from the pin for every run; every run starts identical:
+A pin is a named, immutable reference to a branch state. While the pin exists,
+it protects the history it references from garbage collection and resets.
+Deleting the pin removes that protection; keep independent backups for loss
+of the underlying deployment. Pin the eval dataset once, then fork a fresh
+sandbox from the same retained pin for each run:
 
 ```python
 argon.create_pin("my-project", "eval-v1", note="golden dataset")
 
 run = argon.sandbox_from_pin("my-project", "eval-v1", ttl_minutes=30)
 # ... run the eval against run.connection_string ...
-run.discard()          # the pin itself is untouched — fork again anytime
+run.discard()          # the pin remains; fork it again while it exists
 ```
 
 ## Tests
