@@ -5,10 +5,10 @@ saver pointed at an Argon branch, plus the operations MongoDB alone cannot
 give you:
 
 - ``from_sandbox``: fork the whole memory state into a disposable,
-  TTL-stamped copy and checkpoint an agent against it — production
-  checkpoints are never at risk.
+  TTL-stamped copy and checkpoint an agent against that branch. Scope MongoDB
+  credentials and network access to the intended database.
 - ``fork``: branch the entire checkpoint history (every thread) at its
-  current state, cheaply, and get an independent saver for the copy.
+  current state and get an independent saver for the physical copy.
 - ``merge`` / ``discard`` on the underlying sandbox to adopt or reject
   whatever the agent's run produced.
 
@@ -63,7 +63,9 @@ class ArgonCheckpointSaver(MongoDBSaver):
         """Fork a sandbox and checkpoint against it.
 
         The saver's ``sandbox`` attribute exposes ``merge()`` and
-        ``discard()``; the TTL reclaims the sandbox if neither happens.
+        ``discard()``. merge() immediately previews and applies; use the client
+        preview/apply methods for a separate review step. The running API
+        sweeps expired sandboxes after their TTL.
         """
         sandbox = argon.create_sandbox(
             project, from_branch=from_branch, name=name, ttl_minutes=ttl_minutes, actor=actor
@@ -97,7 +99,12 @@ class ArgonCheckpointSaver(MongoDBSaver):
         )
 
     def merge(self, strategy: Optional[str] = None) -> dict:
-        """Adopt the sandboxed checkpoints into the parent branch."""
+        """Preview and apply the sandboxed checkpoints immediately.
+
+        This convenience method does not pause for approval. Use the client's
+        merge_preview(project, sandbox.branch), then merge_apply(plan_id),
+        when the workflow requires a separate review step.
+        """
         if self.sandbox is None:
             raise ValueError("merge() needs a saver created via from_sandbox()")
         return self.sandbox.merge(strategy)
