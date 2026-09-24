@@ -19,14 +19,21 @@ agent frameworks the two things plain MongoDB can't:
 
 ## Install
 
-Version 0.2.0 targets Argon 2.1.0 and its exact capture guarantees. Use the
-matching engine release. Release wheels and source archives are available
+Version 0.2.0 supports Argon 2.1.1 and its exact capture guarantees. Use
+2.1.1 or a later compatible 2.1 patch; 2.1.0 has a shutdown bug fixed in 2.1.1.
+Release wheels and source archives are available
 from [GitHub Releases](https://github.com/argon-lab/argon-agents/releases).
 
 ```bash
-pip install argon-agents==0.2.0            # client + Mem0 factory
-pip install "argon-agents[langgraph]==0.2.0"  # + the LangGraph checkpointer
+pip install 'argon-agents @ https://github.com/argon-lab/argon-agents/releases/download/v0.2.0/argon_agents-0.2.0-py3-none-any.whl'
+pip install 'argon-agents[langgraph] @ https://github.com/argon-lab/argon-agents/releases/download/v0.2.0/argon_agents-0.2.0-py3-none-any.whl'
 ```
+
+These commands install the existing, versioned release wheel. PyPI publication
+of 0.2.0 is pending publisher configuration; PyPI currently serves 0.1.0.
+Do not substitute an unpinned PyPI install. The release workflow verifies the
+registry and installs its wheel in a fresh environment before declaring a
+publication complete. See [release operations](RELEASING.md).
 
 Requires a running [Argon API server](https://github.com/argon-lab/argon)
 (`cd api && go run .`) backed by MongoDB 7 as a replica set. The managed
