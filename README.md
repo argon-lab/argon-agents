@@ -20,8 +20,11 @@ agent frameworks the two things plain MongoDB can't:
 
 ## Install
 
-Version 0.2.0 supports Argon 2.1.1 and its exact capture guarantees. Use
-2.1.1 or a later compatible 2.1 patch; 2.1.0 has a shutdown bug fixed in 2.1.1.
+SDK 0.2.0 requires Argon 2.1.1 or a compatible later 2.1 patch. We recommend
+[Argon 2.1.2](https://github.com/argon-lab/argon/blob/v2.1.2/CHANGELOG.md): REST
+branch creation synchronizes the parent's captured writes before forking,
+imports require an explicitly quiesced source, and Go consumers have valid
+`/v2` module paths. Version 2.1.1 remains compatible; 2.1.0 has a shutdown bug.
 Release wheels and source archives are available
 from [GitHub Releases](https://github.com/argon-lab/argon-agents/releases).
 
@@ -161,7 +164,8 @@ pip install -e ".[dev]"
 ARGON_REQUIRE_STACK=1 MEM0_TELEMETRY=false pytest
 ```
 
-CI checks Python 3.10, 3.12 and 3.14 and fails if the stack is unavailable.
+CI checks Python 3.10, 3.12 and 3.14 against Argon v2.1.2 and fails if the
+stack is unavailable.
 The dispatch input `engine_ref` accepts an exact engine commit or release tag;
 the resolved SHA is logged. Tests exercise mandatory conflicts, actual undo,
 LangGraph invoke/ainvoke and fork isolation, pinned input, and Mem0's real

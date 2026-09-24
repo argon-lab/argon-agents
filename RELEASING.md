@@ -25,7 +25,8 @@ not needed with Trusted Publishing. Never put credentials in logs or issues.
 
 ## Release procedure
 
-1. Run integration CI against the supported engine release, with
+1. Run integration CI against the recommended engine release (currently
+   `v2.1.2`; SDK 0.2.0's minimum compatible release remains `v2.1.1`), with
    `ARGON_REQUIRE_STACK=1` so a missing MongoDB/API stack fails the run.
 2. Set the package version, build and check wheel/sdist, and merge the reviewed
    source before creating the stable `vX.Y.Z` tag. Never move an existing tag
