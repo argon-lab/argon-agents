@@ -138,7 +138,7 @@ jobs:
           PY
       - name: Publish using assigned credentials or PyPI trusted publishing
         if: ${{ !inputs.probe_only }}
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           password: ${{ secrets.PYPI_API_TOKEN || secrets.PYPI_TOKEN || secrets.TWINE_PASSWORD }}
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
