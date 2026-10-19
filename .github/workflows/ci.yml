@@ -9,8 +9,11 @@ on:
     inputs:
       engine_ref:
         description: "Exact engine SHA or release tag to verify"
-        default: v2.1.2
+        default: v2.1.3
         required: true
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -24,24 +27,27 @@ jobs:
       MEM0_TELEMETRY: 'false'
 
     steps:
-    - uses: actions/checkout@v4
-
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
+        persist-credentials: false
+
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
         repository: argon-lab/argon
-        ref: ${{ inputs.engine_ref || 'v2.1.2' }}
+        ref: ${{ inputs.engine_ref || 'v2.1.3' }}
         path: engine
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version: '1.26.6'
+        go-version: '1.26.9'
         cache-dependency-path: |
           engine/go.sum
           engine/api/go.sum
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: ${{ matrix.python }}
 
