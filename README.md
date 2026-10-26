@@ -21,7 +21,7 @@ agent frameworks the two things plain MongoDB can't:
 ## Install
 
 SDK 0.2.0 requires Argon 2.1.1 or a compatible later 2.1 patch. We recommend
-[Argon 2.1.3](https://github.com/argon-lab/argon/blob/v2.1.3/CHANGELOG.md), which
+[Argon 2.1.4](https://github.com/argon-lab/argon/blob/v2.1.4/CHANGELOG.md), which
 includes the earlier capture, import and Go module fixes plus patched Go
 toolchain and dependency versions. Version 2.1.1 remains compatible; 2.1.0
 has a shutdown bug.
@@ -162,7 +162,7 @@ pip install -e ".[dev]"
 ARGON_REQUIRE_STACK=1 MEM0_TELEMETRY=false pytest
 ```
 
-CI checks Python 3.10, 3.12 and 3.14 against Argon v2.1.3 and fails if the
+CI checks Python 3.10, 3.12 and 3.14 against Argon v2.1.4 and fails if the
 stack is unavailable.
 The dispatch input `engine_ref` accepts an exact engine commit or release tag;
 the resolved SHA is logged. Tests exercise mandatory conflicts, actual undo,
