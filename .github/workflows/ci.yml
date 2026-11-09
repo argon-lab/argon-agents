@@ -9,7 +9,7 @@ on:
     inputs:
       engine_ref:
         description: "Exact engine SHA or release tag to verify"
-        default: v2.1.4
+        default: v2.1.5
         required: true
 
 permissions:
@@ -35,7 +35,7 @@ jobs:
       with:
         persist-credentials: false
         repository: argon-lab/argon
-        ref: ${{ inputs.engine_ref || 'v2.1.4' }}
+        ref: ${{ inputs.engine_ref || 'v2.1.5' }}
         path: engine
 
     - name: Set up Go
