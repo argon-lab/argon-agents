@@ -9,7 +9,7 @@ on:
     inputs:
       engine_ref:
         description: "Exact engine SHA or release tag to verify"
-        default: v2.1.5
+        default: v2.1.6
         required: true
 
 permissions:
@@ -35,13 +35,13 @@ jobs:
       with:
         persist-credentials: false
         repository: argon-lab/argon
-        ref: ${{ inputs.engine_ref || 'v2.1.5' }}
+        ref: ${{ inputs.engine_ref || 'v2.1.6' }}
         path: engine
 
     - name: Set up Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version: '1.26.10'
+        go-version: '1.26.11'
         cache-dependency-path: |
           engine/go.sum
           engine/api/go.sum
