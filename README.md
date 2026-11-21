@@ -20,7 +20,7 @@ agent frameworks the two things plain MongoDB can't:
 
 ## Install
 
-SDK 0.2.0 requires Argon 2.1.1 or a compatible later 2.1 patch. We recommend
+SDK 0.2.0 and 0.3.0 require Argon 2.1.1 or a compatible later release; `credential=True` needs 2.10.0 and the index report 2.11.0. We recommend
 [Argon 2.11.0](https://github.com/argon-lab/argon/blob/v2.11.0/CHANGELOG.md), which
 includes the earlier capture, import and Go module fixes and the fix for
 [GO-2026-6865](https://pkg.go.dev/vuln/GO-2026-6865) in a compression dependency.
@@ -74,6 +74,21 @@ The actor labels the entire branch/run, not individual MongoDB clients.
 Use a separate sandbox for each agent. For a protected API, pass
 `ArgonClient(api_url, token=...)`; never give an agent a production service
 credential. Inspect `argon.capture_status()` if capture reports degraded.
+
+From SDK 0.3.0 with Argon 2.10.0 or later, `create_sandbox(...,
+credential=True)` and `ArgonCheckpointSaver.from_sandbox(...,
+credential=True)` return a connection string for a MongoDB user that can
+read and write only that sandbox's database. Argon returns its password once
+and revokes the user when the sandbox is discarded or swept. The deployment
+must enforce authentication and the engine needs `userAdmin` on the sandbox
+databases; otherwise the API refuses the request. An expired sandbox's
+credential works until a sweep runs. The Mem0 helper does not take the option
+because it runs `collMod`, which that user may not do.
+
+With Argon 2.11.0 or later, a sandbox's checkout also builds the secondary
+indexes recorded for its branch. `sandbox.indexes` is the number built and
+`sandbox.index_notes` names TTL indexes built without expiry and indexes the
+data violates. Older engines report `0` and an empty list.
 
 New application collections must enable `changeStreamPreAndPostImages`
 before rapid updates; the LangGraph and Mem0 adapters do this themselves.
