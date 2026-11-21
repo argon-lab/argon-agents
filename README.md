@@ -30,11 +30,11 @@ Release wheels and source archives are available
 from [GitHub Releases](https://github.com/argon-lab/argon-agents/releases).
 
 ```bash
-python3 -m pip install 'argon-agents==0.2.0'
-python3 -m pip install 'argon-agents[langgraph]==0.2.0'
+python3 -m pip install 'argon-agents==0.3.0'
+python3 -m pip install 'argon-agents[langgraph]==0.3.0'
 ```
 
-These commands install SDK 0.2.0 from PyPI. The release workflow verifies the
+These commands install SDK 0.3.0 from PyPI. The release workflow verifies the
 registry and installs its wheel in a fresh environment before declaring a
 publication complete. See [release operations](RELEASING.md).
 
