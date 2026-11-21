@@ -253,3 +253,33 @@ def test_mem0_provider_real_document_roundtrip(argon: ArgonClient, project: str)
     check.discard()
     box.discard()
     store.client.close()
+
+
+def test_credential_refused_without_authentication(argon: ArgonClient, project: str):
+    # The CI stack runs MongoDB without access control, where a per-sandbox
+    # user would not be enforced; the engine refuses to issue one.
+    with pytest.raises(ArgonError) as excinfo:
+        argon.create_sandbox(project, ttl_minutes=15, credential=True)
+    assert 400 <= excinfo.value.status < 500
+    assert "authentication" in str(excinfo.value)
+
+
+def test_child_sandbox_builds_parent_indexes(argon: ArgonClient, project: str):
+    parent = argon.create_sandbox(project, ttl_minutes=15)
+    db = parent.pymongo_database()
+    db.create_collection("orders", changeStreamPreAndPostImages={"enabled": True})
+    db.orders.insert_one({"_id": 1, "sku": "a"})
+    db.orders.create_index("sku", unique=True)
+    wait_for_diff(parent, 1)
+    deadline = time.time() + 20
+    while True:
+        child = argon.create_sandbox(project, from_branch=parent.branch, ttl_minutes=15)
+        if child.indexes >= 1:
+            break
+        child.discard()
+        assert time.time() < deadline, "the child sandbox never built the parent's index"
+        time.sleep(0.5)
+    names = [ix["name"] for ix in child.pymongo_database().orders.list_indexes()]
+    assert "sku_1" in names
+    child.discard()
+    parent.discard()

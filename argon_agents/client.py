@@ -91,21 +91,26 @@ class ArgonClient:
         name: Optional[str] = None,
         ttl_minutes: int = 60,
         actor: Optional[str] = None,
+        *,
+        credential: bool = False,
     ) -> "Sandbox":
-        body = {"from": from_branch, "ttl_minutes": ttl_minutes}
+        """Fork a TTL sandbox from a branch and return its connection string.
+
+        With ``credential=True`` (Argon 2.10.0 or later, on a deployment that
+        enforces authentication) the connection string carries a MongoDB user
+        that can read and write only this sandbox's database. It is returned
+        once and revoked when the sandbox is discarded or swept. Without it
+        the connection string uses the engine's own credentials.
+        """
+        body: dict[str, Any] = {"from": from_branch, "ttl_minutes": ttl_minutes}
         if actor:
             body["actor"] = actor
         if name:
             body["name"] = name
+        if credential:
+            body["credential"] = True
         resp = self._call("POST", f"/projects/{project}/sandboxes", body)
-        return Sandbox(
-            _client=self,
-            project=project,
-            branch=resp["branch"],
-            connection_string=resp["connection_string"],
-            expires_at=resp["expires_at"],
-            forked_from=resp["forked_from"],
-        )
+        return Sandbox._from_response(self, project, resp)
 
     # -- pins (reproducible eval datasets) -----------------------------------
 
@@ -151,14 +156,7 @@ class ArgonClient:
         if name:
             body["name"] = name
         resp = self._call("POST", f"/projects/{project}/pins/{pin}/sandboxes", body)
-        return Sandbox(
-            _client=self,
-            project=project,
-            branch=resp["branch"],
-            connection_string=resp["connection_string"],
-            expires_at=resp["expires_at"],
-            forked_from=resp["forked_from"],
-        )
+        return Sandbox._from_response(self, project, resp)
 
     # -- diff / merge / undo ------------------------------------------------
 
@@ -229,6 +227,24 @@ class Sandbox:
     expires_at: str
     forked_from: str
     _client: ArgonClient = field(repr=False, default=None)
+    #: Secondary indexes the checkout built (Argon 2.11.0 or later).
+    indexes: int = 0
+    #: Indexes built without their TTL expiry, or not built because the
+    #: sandbox's data violates them (Argon 2.11.0 or later).
+    index_notes: list[str] = field(default_factory=list)
+
+    @classmethod
+    def _from_response(cls, client: ArgonClient, project: str, resp: dict) -> "Sandbox":
+        return cls(
+            _client=client,
+            project=project,
+            branch=resp["branch"],
+            connection_string=resp["connection_string"],
+            expires_at=resp["expires_at"],
+            forked_from=resp["forked_from"],
+            indexes=resp.get("indexes") or 0,
+            index_notes=list(resp.get("index_notes") or []),
+        )
 
     @property
     def database_name(self) -> str:
