@@ -58,6 +58,8 @@ class ArgonCheckpointSaver(MongoDBSaver):
         name: Optional[str] = None,
         ttl_minutes: int = 60,
         actor: Optional[str] = None,
+        *,
+        credential: bool = False,
         **kwargs,
     ) -> "ArgonCheckpointSaver":
         """Fork a sandbox and checkpoint against it.
@@ -68,7 +70,8 @@ class ArgonCheckpointSaver(MongoDBSaver):
         sweeps expired sandboxes after their TTL.
         """
         sandbox = argon.create_sandbox(
-            project, from_branch=from_branch, name=name, ttl_minutes=ttl_minutes, actor=actor
+            project, from_branch=from_branch, name=name, ttl_minutes=ttl_minutes, actor=actor,
+            credential=credential,
         )
         return cls(sandbox.connection_string, sandbox=sandbox, **kwargs)
 
@@ -84,6 +87,8 @@ class ArgonCheckpointSaver(MongoDBSaver):
         argon: ArgonClient,
         name: Optional[str] = None,
         ttl_minutes: int = 60,
+        *,
+        credential: bool = False,
     ) -> "ArgonCheckpointSaver":
         """Fork the entire checkpoint store (all threads) at its current
         state into a new sandbox and return a saver for the copy."""
@@ -96,6 +101,7 @@ class ArgonCheckpointSaver(MongoDBSaver):
             from_branch=self.sandbox.branch,
             name=name,
             ttl_minutes=ttl_minutes,
+            credential=credential,
         )
 
     def merge(self, strategy: Optional[str] = None) -> dict:
