@@ -94,13 +94,19 @@ class ArgonClient:
         *,
         credential: bool = False,
     ) -> "Sandbox":
-        """Fork a TTL sandbox from a branch and return its connection string.
+        """Fork a TTL sandbox from a branch and return a :class:`Sandbox`.
+
+        The sandbox carries its connection string and expiry and, from Argon
+        2.11.0, ``indexes`` and ``index_notes`` for the secondary indexes its
+        checkout built.
 
         With ``credential=True`` (Argon 2.10.0 or later, on a deployment that
         enforces authentication) the connection string carries a MongoDB user
         that can read and write only this sandbox's database. It is returned
-        once and revoked when the sandbox is discarded or swept. Without it
-        the connection string uses the engine's own credentials.
+        once and revoked when the sandbox is discarded or swept. Argon refuses
+        it (HTTP 422 from 2.11.1) on an unauthenticated deployment or when the
+        engine's deployment is MongoDB Atlas. Without it the connection string
+        uses the engine's own credentials.
         """
         body: dict[str, Any] = {"from": from_branch, "ttl_minutes": ttl_minutes}
         if actor:
@@ -217,7 +223,8 @@ class Sandbox:
     """A disposable, versioned copy of a branch, with a TTL.
 
     Point any MongoDB client at ``connection_string``; every write becomes
-    versioned history. ``merge()`` brings the work back to the parent,
+    versioned history. ``merge()`` previews and applies at once (use
+    ``ArgonClient.merge_preview``/``merge_apply`` to review first),
     ``discard()`` throws it away, the TTL reclaims whatever is left.
     """
 

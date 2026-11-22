@@ -36,8 +36,12 @@ def sandboxed_mem0_config(
         config, sandbox = sandboxed_mem0_config(argon, "my-project")
         memory = Memory.from_config({"vector_store": config, ...})
         ...  # let the agent read and write memories
-        sandbox.merge()      # adopt the new memories
+        plan = argon.merge_preview("my-project", sandbox.branch)
+        argon.merge_apply(plan["id"])   # adopt the reviewed memories
         # or sandbox.discard(), or just let the TTL reclaim it
+
+    There is no ``credential`` option: the helper runs ``collMod`` on the
+    sandbox, which a sandbox-scoped user may not do.
     """
     sandbox = argon.create_sandbox(
         project, from_branch=from_branch, name=name, ttl_minutes=ttl_minutes, actor=actor
