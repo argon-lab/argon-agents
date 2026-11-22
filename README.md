@@ -13,6 +13,10 @@ agent frameworks the two things plain MongoDB can't:
 1. **A disposable copy of state to work against.** Fork a sandbox with a
    TTL, point the agent at an ordinary connection string, and production
    data stays isolated until you explicitly merge the reviewed changes.
+   `merge_apply` updates the Argon branch; writing a reviewed plan back to
+   an imported source (including MongoDB Atlas) is a CLI step,
+   `argon merge apply <plan-id> --write-back --approve <digest>`, after an
+   optional `argon merge check <plan-id>`. The SDK does not wrap it.
 2. **An adopt-or-reject story for what the agent did.** Diff the sandbox,
    preview a merge and explicitly apply its reviewed plan, undo supported
    captured ranges within retained history, or let the running API reclaim
@@ -21,13 +25,12 @@ agent frameworks the two things plain MongoDB can't:
 ## Install
 
 SDK 0.2.0 and 0.3.0 require Argon 2.1.1 or a compatible later release; `credential=True` needs 2.10.0 and the index report 2.11.0. We recommend
-[Argon 2.12.0](https://github.com/argon-lab/argon/blob/v2.12.0/CHANGELOG.md), which
-includes the earlier capture, import and Go module fixes and the fix for
-[GO-2026-6865](https://pkg.go.dev/vuln/GO-2026-6865) in a compression dependency.
-Version 2.1.1 remains compatible; 2.1.0
-has a shutdown bug.
-Release wheels and source archives are available
-from [GitHub Releases](https://github.com/argon-lab/argon-agents/releases).
+[Argon 2.12.0](https://github.com/argon-lab/argon/blob/v2.12.0/CHANGELOG.md): from
+2.11.1 a refused sandbox request returns 409 or 422 instead of 500. Version
+2.1.1 remains compatible; 2.1.0 has a shutdown bug. Release wheels and source
+archives are also attached to
+[GitHub Releases](https://github.com/argon-lab/argon-agents/releases); see the
+[changelog](CHANGELOG.md).
 
 ```bash
 python3 -m pip install 'argon-agents==0.3.0'
@@ -38,11 +41,12 @@ These commands install SDK 0.3.0 from PyPI. The release workflow verifies the
 registry and installs its wheel in a fresh environment before declaring a
 publication complete. See [release operations](RELEASING.md).
 
-Requires a running [Argon API server](https://github.com/argon-lab/argon)
-(`cd api && go run .`) backed by MongoDB 7 as a replica set. The managed
-API waits for capture readiness, synchronizes versioned operations and
-sweeps expired sandboxes every minute. Stop native writers before release
-or discard. The public hosted demo does not expose native connection strings.
+Requires a running [Argon API server](https://github.com/argon-lab/argon),
+for example `argon console --no-browser` (port 1818), backed by a MongoDB 6.0,
+7.0 or 8.0 replica set. The managed API waits for capture readiness,
+synchronizes versioned operations and sweeps expired sandboxes every minute.
+Stop native writers before release or discard. There is no hosted service; run
+the engine yourself.
 
 ## The client
 
@@ -81,14 +85,18 @@ credential=True)` return a connection string for a MongoDB user that can
 read and write only that sandbox's database. Argon returns its password once
 and revokes the user when the sandbox is discarded or swept. The deployment
 must enforce authentication and the engine needs `userAdmin` on the sandbox
-databases; otherwise the API refuses the request. An expired sandbox's
+databases; otherwise the API refuses the request (HTTP 422 from Argon 2.11.1,
+500 before). It is also refused when the engine's own deployment is MongoDB
+Atlas, which does not allow `createUser`. An expired sandbox's
 credential works until a sweep runs. The Mem0 helper does not take the option
 because it runs `collMod`, which that user may not do.
 
 With Argon 2.11.0 or later, a sandbox's checkout also builds the secondary
 indexes recorded for its branch. `sandbox.indexes` is the number built and
 `sandbox.index_notes` names TTL indexes built without expiry and indexes the
-data violates. Older engines report `0` and an empty list.
+data violates. Older engines report `0` and an empty list. Indexes are not
+versioned and a merge does not carry index changes; Atlas Search indexes are
+not built in sandboxes.
 
 New application collections must enable `changeStreamPreAndPostImages`
 before rapid updates; the LangGraph and Mem0 adapters do this themselves.
@@ -135,8 +143,10 @@ Mem0 speaks MongoDB natively; Argon supplies the versioned sandbox:
 
 **Semantic search requires MongoDB Atlas Search or a compatible Search
 deployment.** A plain replica set supports versioned document storage but
-does not implement `$vectorSearch`. Provision search indexes separately
-for each branch; Argon versions documents, not search-index definitions.
+does not implement `$vectorSearch`. Argon builds secondary indexes in
+sandboxes (2.11.0 and later) but not search indexes, and sandboxes live on the
+engine's own deployment, so provision search indexes separately for each
+branch.
 Configure the LLM/embedder required by Mem0 before running `Memory`.
 
 ```python

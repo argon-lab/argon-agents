@@ -21,3 +21,5 @@ dev = ["pytest>=8", "langgraph-checkpoint-mongodb>=0.1", "langgraph>=0.2", "mem0
 [project.urls]
 Homepage = "https://github.com/argon-lab/argon-agents"
 Engine = "https://github.com/argon-lab/argon"
+Changelog = "https://github.com/argon-lab/argon-agents/blob/main/CHANGELOG.md"
+Issues = "https://github.com/argon-lab/argon-agents/issues"

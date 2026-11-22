@@ -5,8 +5,9 @@ saver pointed at an Argon branch, plus the operations MongoDB alone cannot
 give you:
 
 - ``from_sandbox``: fork the whole memory state into a disposable,
-  TTL-stamped copy and checkpoint an agent against that branch. Scope MongoDB
-  credentials and network access to the intended database.
+  TTL-stamped copy and checkpoint an agent against that branch. Pass
+  ``credential=True`` (Argon 2.10.0+) for a MongoDB user scoped to the
+  sandbox database, or scope credentials and network access yourself.
 - ``fork``: branch the entire checkpoint history (every thread) at its
   current state and get an independent saver for the physical copy.
 - ``merge`` / ``discard`` on the underlying sandbox to adopt or reject
@@ -67,7 +68,8 @@ class ArgonCheckpointSaver(MongoDBSaver):
         The saver's ``sandbox`` attribute exposes ``merge()`` and
         ``discard()``. merge() immediately previews and applies; use the client
         preview/apply methods for a separate review step. The running API
-        sweeps expired sandboxes after their TTL.
+        sweeps expired sandboxes after their TTL. ``credential=True`` (Argon
+        2.10.0+) gives the saver a MongoDB user scoped to the sandbox database.
         """
         sandbox = argon.create_sandbox(
             project, from_branch=from_branch, name=name, ttl_minutes=ttl_minutes, actor=actor,
@@ -91,7 +93,10 @@ class ArgonCheckpointSaver(MongoDBSaver):
         credential: bool = False,
     ) -> "ArgonCheckpointSaver":
         """Fork the entire checkpoint store (all threads) at its current
-        state into a new sandbox and return a saver for the copy."""
+        state into a new sandbox and return a saver for the copy.
+
+        ``credential=True`` (Argon 2.10.0+) scopes the copy's MongoDB user to
+        its sandbox database."""
         if self.sandbox is None:
             raise ValueError("fork() needs a saver created via from_sandbox()")
         self.sandbox.diff()  # the API synchronizes acknowledged writes before forking

@@ -40,7 +40,9 @@ not needed with Trusted Publishing. Never put credentials in logs or issues.
 4. Require the registry verification step to pass. It waits for the expected
    non-yanked release, downloads a wheel through pip into a fresh virtual
    environment, checks the installed version and imports the client there.
-5. Update README/website/core install commands only after the registry check.
+5. Create the GitHub release for the tag, with the CHANGELOG entry as its
+   notes and the checked wheel and sdist attached.
+6. Update README/website/core install commands only after the registry check.
    Until then, keep the published GitHub wheel/tag as the explicit fallback.
 
 If an upload succeeded but the final network verification failed, run

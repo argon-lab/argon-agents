@@ -1,10 +1,10 @@
 """A real database review workflow, with no LLM or paid API dependency.
 
-Run the Argon API against a MongoDB 7 replica set, then:
+Run the Argon API (for example `argon console --no-browser`) against a MongoDB
+6.0, 7.0 or 8.0 replica set, then:
   pip install -e .
   python examples/two_agent_review.py
 Set ARGON_API_URL and optionally ARGON_API_TOKEN for your local deployment.
-The hosted anonymous demo intentionally does not grant native MongoDB access.
 """
 
 import json
