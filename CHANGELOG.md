@@ -14,7 +14,7 @@ described on [GitHub Releases](https://github.com/argon-lab/argon-agents/release
   not versioned and Atlas Search indexes are not built in sandboxes; the
   Mem0 example reviews a plan before applying it. No hosted service is
   referenced any more.
-- CI tests against Argon v2.12.0.
+- CI tests against Argon v2.13.0.
 
 ## [0.3.0] - 2026-11-21
 
